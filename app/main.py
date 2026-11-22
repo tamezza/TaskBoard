@@ -1,39 +1,75 @@
-from fastapi import FastAPI, HTTPException
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.db import Base, SessionLocal, Task, engine
+
+Base.metadata.create_all(engine)
 
 app = FastAPI(title="taskboard")
+
 
 class TaskIn(BaseModel):
     title: str
 
-tasks: dict[int, dict] = {}
-next_id = 1
+
+class TaskOut(BaseModel):
+    id: int
+    title: str
+    done: bool
+
+    model_config = {"from_attributes": True}
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+DbSession = Annotated[Session, Depends(get_db)]
+
+
+
+def get_task_or_404(db: Session, task_id: int) -> Task:
+    task = db.get(Task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    return task
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-@app.get("/tasks")
-def list_tasks():
-    return list(tasks.values())
 
-@app.post("/tasks", status_code=201)
-def create_task(task: TaskIn):
-    global next_id
-    item = {"id": next_id, "title": task.title, "done": False}
-    tasks[next_id] = item
-    next_id += 1
+@app.get("/tasks", response_model=list[TaskOut])
+def list_tasks(db: DbSession):
+    return db.query(Task).all()
+
+
+@app.post("/tasks", response_model=TaskOut, status_code=201)
+def create_task(task: TaskIn, db: DbSession):
+    item = Task(title=task.title)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
     return item
 
-@app.get("/tasks/{task_id}")
-def get_task(task_id: int):
-    if task_id not in tasks:
-        raise HTTPException(status_code=404, detail="task not found")
-    return tasks[task_id]
 
-@app.patch("/tasks/{task_id}/done")
-def complete_task(task_id: int):
-    if task_id not in tasks:
-        raise HTTPException(status_code=404, detail="task not found")
-    tasks[task_id]["done"] = True
-    return tasks[task_id]
+@app.get("/tasks/{task_id}", response_model=TaskOut)
+def get_task(task_id: int, db: DbSession):
+    return get_task_or_404(db, task_id)
+
+
+@app.patch("/tasks/{task_id}/done", response_model=TaskOut)
+def complete_task(task_id: int, db: DbSession):
+    task = get_task_or_404(db, task_id)
+    task.done = True
+    db.commit()
+    db.refresh(task)
+    return task
