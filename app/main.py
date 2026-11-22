@@ -30,3 +30,10 @@ def get_task(task_id: int):
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="task not found")
     return tasks[task_id]
+
+@app.patch("/tasks/{task_id}/done")
+def complete_task(task_id: int):
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="task not found")
+    tasks[task_id]["done"] = True
+    return tasks[task_id]
