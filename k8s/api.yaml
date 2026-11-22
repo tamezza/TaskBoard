@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskboard
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: taskboard
+  template:
+    metadata:
+      labels:
+        app: taskboard
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/tamezza/taskboard:latest
+          env:
+            - name: DATABASE_URL
+              value: postgresql+psycopg://taskboard:devpassword@db:5432/taskboard
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard
+spec:
+  selector:
+    app: taskboard
+  ports:
+    - port: 80
+      targetPort: 8000
