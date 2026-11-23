@@ -1,0 +1,10 @@
+groups:
+  - name: taskboard
+    rules:
+      - alert: TaskboardDown
+        expr: up{job="taskboard"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "TaskBoard API is down"
