@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.db import Base, SessionLocal, Task, engine
 Base.metadata.create_all(engine)
 
 app = FastAPI(title="taskboard")
+Instrumentator().instrument(app).expose(app)
 
 
 class TaskIn(BaseModel):
