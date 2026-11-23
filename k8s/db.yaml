@@ -31,7 +31,10 @@ spec:
             - name: POSTGRES_USER
               value: taskboard
             - name: POSTGRES_PASSWORD
-              value: devpassword
+              valueFrom:
+                secretKeyRef:
+                  name: taskboard-db
+                  key: password
             - name: POSTGRES_DB
               value: taskboard
             - name: PGDATA

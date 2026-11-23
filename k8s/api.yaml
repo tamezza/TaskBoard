@@ -16,8 +16,13 @@ spec:
         - name: api
           image: ghcr.io/tamezza/taskboard:latest
           env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskboard-db
+                  key: password
             - name: DATABASE_URL
-              value: postgresql+psycopg://taskboard:devpassword@db:5432/taskboard
+              value: postgresql+psycopg://taskboard:$(DB_PASSWORD)@db:5432/taskboard
           ports:
             - containerPort: 8000
           readinessProbe:
