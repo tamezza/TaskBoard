@@ -3,3 +3,5 @@ __pycache__/
 .env
 taskboard.db
 .DS_Store
+.terraform/
+*.tfstate*
