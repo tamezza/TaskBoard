@@ -2,6 +2,24 @@ const TOKEN_KEY = "taskboard_token";
 
 export type BoardSummary = { id: number; name: string };
 
+export type Card = {
+  id: number;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  position: number;
+  column_id: number;
+};
+
+export type Column = {
+  id: number;
+  name: string;
+  position: number;
+  cards: Card[];
+};
+
+export type Board = BoardSummary & { columns: Column[] };
+
 export class ApiError extends Error {
   status: number;
 
@@ -63,4 +81,20 @@ export const api = {
 
   createBoard: (name: string) =>
     request<BoardSummary>("POST", "/boards", { name }),
+
+  getBoard: (boardId: number) => request<Board>("GET", `/boards/${boardId}`),
+
+  deleteBoard: (boardId: number) =>
+    request<void>("DELETE", `/boards/${boardId}`),
+
+  createCard: (columnId: number, title: string) =>
+    request<Card>("POST", `/columns/${columnId}/cards`, { title }),
+
+  moveCard: (cardId: number, columnId: number, position: number) =>
+    request<Card>("POST", `/cards/${cardId}/move`, {
+      column_id: columnId,
+      position,
+    }),
+
+  deleteCard: (cardId: number) => request<void>("DELETE", `/cards/${cardId}`),
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, api, getToken, setToken } from "./api";
 import type { BoardSummary } from "./api";
+import { BoardView } from "./BoardView";
 
 function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [email, setEmail] = useState("");
@@ -51,7 +52,12 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   );
 }
 
-function Boards({ setLoggedIn }: { setLoggedIn: (value: boolean) => void }) {
+type BoardsProps = {
+  setLoggedIn: (value: boolean) => void;
+  onOpen: (boardId: number) => void;
+};
+
+function Boards({ setLoggedIn, onOpen }: BoardsProps) {
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [name, setName] = useState("");
 
@@ -79,9 +85,13 @@ function Boards({ setLoggedIn }: { setLoggedIn: (value: boolean) => void }) {
   return (
     <main className="panel">
       <h1>Your boards</h1>
-      <ul>
+      <ul className="board-list">
         {boards.map((board) => (
-          <li key={board.id}>{board.name}</li>
+          <li key={board.id}>
+            <button type="button" onClick={() => onOpen(board.id)}>
+              {board.name}
+            </button>
+          </li>
         ))}
       </ul>
       <form
@@ -107,10 +117,11 @@ function Boards({ setLoggedIn }: { setLoggedIn: (value: boolean) => void }) {
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(getToken() !== null);
+  const [openBoard, setOpenBoard] = useState<number | null>(null);
 
-  return loggedIn ? (
-    <Boards setLoggedIn={setLoggedIn} />
-  ) : (
-    <LoginForm onLoggedIn={() => setLoggedIn(true)} />
-  );
+  if (!loggedIn) return <LoginForm onLoggedIn={() => setLoggedIn(true)} />;
+  if (openBoard !== null) {
+    return <BoardView boardId={openBoard} onBack={() => setOpenBoard(null)} />;
+  }
+  return <Boards setLoggedIn={setLoggedIn} onOpen={setOpenBoard} />;
 }
