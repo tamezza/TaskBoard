@@ -4,12 +4,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import router as auth_router
+from app.boards import router as boards_router
 from app.db import Task
 from app.deps import DbSession
 
 app = FastAPI(title="taskboard")
 Instrumentator().instrument(app).expose(app)
 app.include_router(auth_router)
+app.include_router(boards_router)
 
 
 class TaskIn(BaseModel):
