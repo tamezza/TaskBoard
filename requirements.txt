@@ -15,3 +15,4 @@ uvicorn==0.54.0
 sqlalchemy
 psycopg[binary]
 prometheus-fastapi-instrumentator
+alembic
