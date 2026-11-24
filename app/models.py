@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, String, Text, text
+from sqlalchemy import ForeignKey, String, Text, false, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -30,6 +30,7 @@ class Board(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     created_at: Mapped[datetime] = mapped_column(server_default=NOW)
+    archived: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     owner: Mapped["User"] = relationship(back_populates="boards")
     columns: Mapped[list["BoardColumn"]] = relationship(

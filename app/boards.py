@@ -20,6 +20,12 @@ class BoardIn(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class BoardUpdate(BaseModel):
+    archived: bool
+
+    model_config = {"extra": "forbid"}
+
+
 class CardIn(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
@@ -66,6 +72,7 @@ class ColumnOut(BaseModel):
 class BoardSummary(BaseModel):
     id: int
     name: str
+    archived: bool
 
     model_config = {"from_attributes": True}
 
@@ -109,14 +116,27 @@ def create_board(body: BoardIn, user: CurrentUser, db: DbSession):
 
 
 @router.get("/boards", response_model=list[BoardSummary])
-def list_boards(user: CurrentUser, db: DbSession):
-    query = select(Board).where(Board.owner_id == user.id).order_by(Board.id)
+def list_boards(user: CurrentUser, db: DbSession, archived: bool = False):
+    query = (
+        select(Board)
+        .where(Board.owner_id == user.id, Board.archived == archived)
+        .order_by(Board.id)
+    )
     return db.scalars(query).all()
 
 
 @router.get("/boards/{board_id}", response_model=BoardOut)
 def read_board(board_id: int, user: CurrentUser, db: DbSession):
     return get_board(db, user, board_id)
+
+
+@router.patch("/boards/{board_id}", response_model=BoardSummary)
+def update_board(board_id: int, body: BoardUpdate, user: CurrentUser, db: DbSession):
+    board = get_board(db, user, board_id)
+    board.archived = body.archived
+    db.commit()
+    db.refresh(board)
+    return board
 
 
 @router.delete("/boards/{board_id}", status_code=204)

@@ -1,6 +1,6 @@
 const TOKEN_KEY = "taskboard_token";
 
-export type BoardSummary = { id: number; name: string };
+export type BoardSummary = { id: number; name: string; archived: boolean };
 
 export type Card = {
   id: number;
@@ -77,7 +77,11 @@ export const api = {
     setToken(result.access_token);
   },
 
-  listBoards: () => request<BoardSummary[]>("GET", "/boards"),
+  listBoards: (archived = false) =>
+    request<BoardSummary[]>("GET", `/boards?archived=${archived}`),
+
+  setArchived: (boardId: number, archived: boolean) =>
+    request<BoardSummary>("PATCH", `/boards/${boardId}`, { archived }),
 
   createBoard: (name: string) =>
     request<BoardSummary>("POST", "/boards", { name }),
