@@ -1,14 +1,38 @@
 version: 2
 updates:
+  # Python packages of the API: one pull request per week for all of them
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: docker
-    directory: /
+    groups:
+      python:
+        patterns: ["*"]
+
+  # JavaScript packages of the front end
+  - package-ecosystem: npm
+    directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      frontend:
+        patterns: ["*"]
+
+  # Base images of the three Dockerfiles. Not grouped on purpose:
+  # a new Python, Node or nginx version deserves its own pull request.
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /frontend
+      - /jenkins
+    schedule:
+      interval: weekly
+
+  # Actions used by the pipeline
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

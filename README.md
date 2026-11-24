@@ -3,6 +3,8 @@
 [![CI](https://github.com/tamezza/TaskBoard/actions/workflows/ci.yml/badge.svg)](https://github.com/tamezza/TaskBoard/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)
@@ -11,118 +13,155 @@
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=white)
 ![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=white)
 
-TaskBoard is a task-management application: a REST API where you create tasks, list them, and mark them as done, with the data stored in PostgreSQL.
+TaskBoard is a task board application, in the style of Trello: you create an account, open boards, and organise cards in columns ("To do", "Doing", "Done") by dragging them from one column to another. Each user sees only their own boards.
 
-It is built with **FastAPI** and comes with a complete delivery chain: automated tests, CI/CD pipelines with security scans, a published Docker image, a Kubernetes deployment, cloud infrastructure defined with Terraform, and monitoring with Prometheus and Grafana. 
+It has a **React** interface and a **FastAPI** back end with PostgreSQL, and comes with a complete delivery chain: automated tests, CI/CD pipelines with security scans, published Docker images, a Kubernetes deployment, cloud infrastructure defined with Terraform, and monitoring with Prometheus and Grafana.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
+    user[Browser] --> web[nginx: React interface]
+    web -->|/api| api[FastAPI]
+    api --> db[(PostgreSQL)]
+    prom[Prometheus] -->|scrapes /metrics| api
+    graf[Grafana] --> prom
+```
+
+```mermaid
+flowchart LR
     dev[Developer] -->|pull request| gh[GitHub]
-    gh --> ci[CI: lint, tests, security scans]
+    gh --> ci[CI: lint, tests, front end build, security scans]
     ci -->|merge to main| build[Build multi-arch image]
     build --> reg[(ghcr.io registry)]
-    reg --> run[API: Docker Compose, Kubernetes or Azure VM]
-    run --> db[(PostgreSQL)]
-    prom[Prometheus] -->|scrapes /metrics| run
-    graf[Grafana] --> prom
+    reg --> run[Docker Compose, Kubernetes or Azure VM]
 ```
 
 ## Stack
 
 | Area | Tools |
 |---|---|
-| API | Python 3.13, FastAPI, Pydantic, SQLAlchemy |
-| Database | PostgreSQL 17 (SQLite by default for local runs and CI) |
-| Tests and quality | pytest, ruff |
+| Interface | React 19, TypeScript, Vite, served by nginx |
+| API | Python 3.13, FastAPI, Pydantic, SQLAlchemy 2 |
+| Accounts | Argon2 password hashing, signed tokens (JWT) |
+| Database | PostgreSQL 17, schema migrations with Alembic (SQLite by default for local runs and CI) |
+| Tests and quality | pytest, ruff, oxlint, TypeScript compiler |
 | CI/CD | GitHub Actions, Jenkins |
-| Containers | Docker, Docker Compose |
+| Containers | Docker (multi-stage build for the interface), Docker Compose |
 | Orchestration | Kubernetes (kind for local clusters) |
 | Cloud and infrastructure as code | Microsoft Azure, Terraform, cloud-init |
 | Monitoring | Prometheus (metrics and alert rule), Grafana (provisioned dashboard) |
-| Security | pip-audit, Trivy, Dependabot, non-root container, secrets outside the repository |
+| Security | pip-audit, Trivy, Dependabot, non-root containers, secrets outside the repository |
 
 ## API
 
+Every route except `/health`, `/metrics`, `/auth/register` and `/auth/login` requires an `Authorization: Bearer <token>` header.
+
 | Method | Path | Description |
 |---|---|---|
+| POST | `/auth/register` | Create an account (`{"email": "...", "password": "..."}`), 409 if the email is taken |
+| POST | `/auth/login` | Check the credentials and return an access token, valid for one hour |
+| GET | `/auth/me` | The account that owns the token |
+| GET | `/boards` | List your boards |
+| POST | `/boards` | Create a board (`{"name": "..."}`) with three default columns |
+| GET | `/boards/{id}` | One board with its columns and cards |
+| DELETE | `/boards/{id}` | Delete a board and everything in it |
+| POST | `/columns/{id}/cards` | Add a card to a column (`{"title": "..."}`) |
+| PATCH | `/cards/{id}` | Edit a card (title, description, due date) |
+| POST | `/cards/{id}/move` | Move a card (`{"column_id": 2, "position": 0}`) |
+| DELETE | `/cards/{id}` | Delete a card |
 | GET | `/health` | Health check, used by the Kubernetes readiness probe |
-| GET | `/tasks` | List all tasks |
-| POST | `/tasks` | Create a task (`{"title": "..."}`) |
-| GET | `/tasks/{id}` | Get one task, 404 if it does not exist |
-| PATCH | `/tasks/{id}/done` | Mark a task as done |
 | GET | `/metrics` | Prometheus metrics (request counts and durations) |
+
+A request for a board, column or card that belongs to another user returns 404, the same answer as for one that does not exist. Unknown fields in a request body are rejected with 422.
 
 Interactive documentation is generated by FastAPI at `/docs`.
 
 ## Quick start
 
-### With Docker Compose (API, PostgreSQL, Prometheus, Grafana)
+### With Docker Compose (interface, API, PostgreSQL, Prometheus, Grafana)
 
-The database password is read from an untracked `.env` file:
+The database password and the key that signs the tokens are read from an untracked `.env` file:
 
 ```bash
-cp .env.example .env        # then set your own POSTGRES_PASSWORD in .env
+cp .env.example .env        # then set your own POSTGRES_PASSWORD and SECRET_KEY in .env
 docker compose up --build -d
-curl -X POST http://localhost:8000/tasks \
-  -H "Content-Type: application/json" -d '{"title": "first task"}'
-curl http://localhost:8000/tasks
-docker compose down
 ```
+
+Open http://localhost:8088, register an account and create a board.
 
 | Service | Address |
 |---|---|
-| API | http://localhost:8000 |
+| Interface | http://localhost:8088 |
+| API | http://localhost:8000 (documentation at `/docs`) |
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3000 (default login `admin` / `admin`) |
 
-Data is stored in a named volume, so tasks survive `docker compose down` and `up`.
+Data is stored in a named volume, so boards survive `docker compose down` and `up`. The database schema is created and updated by Alembic migrations when the API container starts.
 
-### From the published image
+### API only, from the published image
 
 ```bash
 docker run --rm -p 8000:8000 ghcr.io/tamezza/taskboard:latest
 ```
 
-### Locally, without Docker
+### Development, without Docker
+
+The API, with automatic reload:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 Without a `DATABASE_URL` environment variable, the API uses a local SQLite file.
 
+The interface, in a second terminal (Node.js 22.12 or later):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. The development server forwards `/api` to the API on port 8000, as nginx does in the container.
+
 ## Tests
 
 ```bash
 ruff check .
-python -m pytest -v
+python -m pytest -v          # API tests, including access control between users
+cd frontend
+npm run lint                 # oxlint
+npm run build                # type check, then production build
 ```
 
 ## CI/CD
 
-The pipeline is defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and has three jobs.
+The pipeline is defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and has four jobs.
 
 | Job | When | What it does |
 |---|---|---|
 | `test` | Every pull request and every push to `main` | Lint with ruff, run the tests |
+| `frontend` | Every pull request and every push to `main` | Install the exact locked packages, lint, type-check and build the interface, build its image |
 | `security` | Every pull request and every push to `main` | Audit Python dependencies with pip-audit, build the image and scan it with Trivy (fails on HIGH or CRITICAL findings that have a fix) |
-| `publish` | Push to `main` only, after `test` and `security` pass | Build the image for `linux/amd64` and `linux/arm64` and push it to `ghcr.io/tamezza/taskboard`, tagged `latest` and with the commit SHA |
+| `publish` | Push to `main` only, after the three other jobs pass | Build the image for `linux/amd64` and `linux/arm64` and push it to `ghcr.io/tamezza/taskboard`, tagged `latest` and with the commit SHA |
 
-The `main` branch is protected: changes arrive through pull requests, and the checks must pass before merging. The SHA tag makes every build traceable and allows rollbacks.
+The `main` branch is protected: changes arrive through pull requests, and the `test`, `frontend` and `security` checks must pass before merging. The SHA tag makes every build traceable and allows rollbacks.
 
 The same install, lint and test stages are also available for Jenkins in the [`Jenkinsfile`](Jenkinsfile). The image for a Jenkins server with Python is in [`jenkins/Dockerfile`](jenkins/Dockerfile).
 
 ## Kubernetes
 
-The manifests in [`k8s/`](k8s) deploy PostgreSQL and three replicas of the API behind a Service. The database password comes from a Kubernetes Secret, created by a command and never stored in a file:
+The manifests in [`k8s/`](k8s) deploy PostgreSQL and three replicas of the API behind a Service. The database password and the token signing key come from a Kubernetes Secret, created by a command and never stored in a file:
 
 ```bash
 kind create cluster --name taskboard --config k8s/kind-config.yaml
-kubectl create secret generic taskboard-db --from-literal=password="$(openssl rand -hex 16)"
+kubectl create secret generic taskboard-db \
+  --from-literal=password="$(openssl rand -hex 16)" \
+  --from-literal=secret-key="$(openssl rand -hex 32)"
 kubectl apply -f k8s/db.yaml
 kubectl rollout status deployment/db
 kubectl apply -f k8s/api.yaml
@@ -135,7 +174,7 @@ What the deployment demonstrates:
 - **Self-healing:** a deleted pod is replaced automatically to keep three replicas.
 - **Rolling updates:** new pods must pass the `/health` readiness probe before old ones are removed, so there is no interruption.
 - **Rollback:** `kubectl rollout undo deployment/taskboard` returns to the previous version.
-- **Shared state:** all replicas use the same PostgreSQL database, so every request sees the same data.
+- **Shared state:** all replicas use the same PostgreSQL database and the same signing key, so a token issued by one replica is accepted by the others.
 
 ## Cloud deployment with Terraform (Azure)
 
@@ -165,36 +204,44 @@ Nothing is configured by hand: `docker compose up` recreates the dashboard and t
 
 ## Security
 
-- **No secrets in the repository:** Compose reads the database password from an untracked `.env` file, Kubernetes from a Secret.
-- **Least privilege:** the container runs as a non-root user, the pipeline token is read-only by default, and only the `publish` job can write packages.
+- **Passwords:** stored as Argon2 hashes, never in clear text. A failed login gives the same answer whether the email or the password is wrong.
+- **Access control:** every board, column and card is checked against the owner of the token, and tested with two users.
+- **No secrets in the repository:** Compose reads the database password and the signing key from an untracked `.env` file, Kubernetes from a Secret.
+- **Least privilege:** both containers run as non-root users, the pipeline token is read-only by default, and only the `publish` job can write packages.
 - **Scanning in the pipeline:** pip-audit for Python dependencies and Trivy for the image. An image with fixable HIGH or CRITICAL findings is not published.
 - **Pinned third-party action:** the Trivy action is referenced by a full commit SHA, not a tag, so its code cannot change silently.
-- **Dependency updates:** Dependabot proposes updates for Python packages, the Docker base image and GitHub Actions.
+- **Dependency updates:** Dependabot proposes updates for Python packages, JavaScript packages, the Docker base images and GitHub Actions.
 
 The first image scan reported 6 HIGH findings, none in the application's own dependencies: one in a system library from the base image, and five in packages bundled inside pip. They were fixed by applying Debian security updates at build time and removing pip from the runtime image.
 
 ## Project structure
 
 ```
-app/                  FastAPI application (main.py) and database models (db.py)
+app/                  FastAPI application: accounts (auth.py, security.py), boards and cards (boards.py), models
+migrations/           Alembic migrations of the database schema
 tests/                API tests
+frontend/             React interface (src/), its Dockerfile and nginx configuration
 .github/              GitHub Actions pipeline and Dependabot configuration
 jenkins/              Dockerfile for a Jenkins server with Python
 k8s/                  Kubernetes manifests and kind cluster configuration
 infra/                Terraform configuration and cloud-init script for Azure
 monitoring/           Prometheus configuration, alert rule, Grafana provisioning
 Dockerfile            Image of the API
-compose.yaml          Local stack: API, PostgreSQL, Prometheus, Grafana
+compose.yaml          Local stack: interface, API, PostgreSQL, Prometheus, Grafana
 Jenkinsfile           Jenkins pipeline
 .env.example          Template for the local .env file
 ```
 
 ## Known limitations and possible next steps
 
+- The application runs locally and on a test virtual machine. A public deployment with HTTPS is the next step.
+- Only the API image is published and scanned. The interface image is built in the pipeline but not yet pushed to the registry, and the Kubernetes manifests and the Azure machine deploy the API only.
+- Migrations run when each API container starts. With several replicas they should run once, as a separate job before the rollout.
+- The interface keeps the access token in the browser's local storage, which a malicious script injected in the page could read. An HttpOnly cookie is the usual hardening.
+- Boards are personal. Sharing a board with other users is planned for the next version.
 - The development password used in early commits is still visible in the Git history. It has been replaced and is no longer used anywhere.
 - The Terraform state is kept locally. A team would store it in a shared, locked remote backend.
 - The alert rule is evaluated by Prometheus but not yet routed to a notification channel (Alertmanager).
-- Possible additions: an ingress and autoscaling on Kubernetes, a GitLab CI version of the pipeline, GitOps deployment with Argo CD.
 
 ## Author
 
