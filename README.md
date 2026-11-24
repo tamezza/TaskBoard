@@ -146,9 +146,9 @@ The pipeline is defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml
 | Job | When | What it does |
 |---|---|---|
 | `test` | Every pull request and every push to `main` | Lint with ruff, run the tests |
-| `frontend` | Every pull request and every push to `main` | Install the exact locked packages, lint, type-check and build the interface, build its image |
+| `frontend` | Every pull request and every push to `main` | Install the exact locked packages, lint, type-check and build the interface, build its image and scan it with Trivy |
 | `security` | Every pull request and every push to `main` | Audit Python dependencies with pip-audit, build the image and scan it with Trivy (fails on HIGH or CRITICAL findings that have a fix) |
-| `publish` | Push to `main` only, after the three other jobs pass | Build the image for `linux/amd64` and `linux/arm64` and push it to `ghcr.io/tamezza/taskboard`, tagged `latest` and with the commit SHA |
+| `publish` | Push to `main` only, after the three other jobs pass | Build the API and interface images for `linux/amd64` and `linux/arm64` and push them to `ghcr.io/tamezza/taskboard` and `ghcr.io/tamezza/taskboard-web`, tagged `latest` and with the commit SHA |
 
 The `main` branch is protected: changes arrive through pull requests, and the `test`, `frontend` and `security` checks must pass before merging. The SHA tag makes every build traceable and allows rollbacks.
 
@@ -209,7 +209,7 @@ Nothing is configured by hand: `docker compose up` recreates the dashboard and t
 - **Access control:** every board, column and card is checked against the owner of the token, and tested with two users.
 - **No secrets in the repository:** Compose reads the database password and the signing key from an untracked `.env` file, Kubernetes from a Secret.
 - **Least privilege:** both containers run as non-root users, the pipeline token is read-only by default, and only the `publish` job can write packages.
-- **Scanning in the pipeline:** pip-audit for Python dependencies and Trivy for the image. An image with fixable HIGH or CRITICAL findings is not published.
+- **Scanning in the pipeline:** pip-audit for Python dependencies and Trivy for both images. An image with fixable HIGH or CRITICAL findings is not published.
 - **Pinned third-party action:** the Trivy action is referenced by a full commit SHA, not a tag, so its code cannot change silently.
 - **Dependency updates:** Dependabot proposes updates for Python packages, JavaScript packages, the Docker base images and GitHub Actions.
 
@@ -236,7 +236,7 @@ Jenkinsfile           Jenkins pipeline
 ## Known limitations and possible next steps
 
 - The application runs locally and on a test virtual machine. A public deployment with HTTPS is the next step.
-- Only the API image is published and scanned. The interface image is built in the pipeline but not yet pushed to the registry, and the Kubernetes manifests and the Azure machine deploy the API only.
+- The Kubernetes manifests and the Azure virtual machine deploy the API only, not yet the interface.
 - Migrations run when each API container starts. With several replicas they should run once, as a separate job before the rollout.
 - The interface keeps the access token in the browser's local storage, which a malicious script injected in the page could read. An HttpOnly cookie is the usual hardening.
 - Boards are personal. Sharing a board with other users is planned for the next version.
