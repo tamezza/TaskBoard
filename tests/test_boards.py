@@ -77,6 +77,44 @@ def test_users_cannot_touch_each_others_boards():
 def test_boards_require_login():
     assert client.get("/boards").status_code == 401
 
+
+def names(headers: dict, **params) -> list[str]:
+    boards = client.get("/boards", params=params, headers=headers).json()
+    return [board["name"] for board in boards]
+
+
+def test_archive_and_restore_a_board():
+    headers = auth_headers("carol@example.com")
+    new_board(headers, "Current")
+    old = new_board(headers, "Old")
+    add_card(headers, old["columns"][0]["id"], "Keep me")
+    url = f"/boards/{old['id']}"
+
+    response = client.patch(url, json={"archived": True}, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["archived"] is True
+    assert names(headers) == ["Current"]
+    assert names(headers, archived=True) == ["Old"]
+
+    # Archiving hides the board from the list but keeps its content
+    board = client.get(url, headers=headers).json()
+    assert titles(board["columns"][0]) == ["Keep me"]
+
+    client.patch(url, json={"archived": False}, headers=headers)
+    assert names(headers) == ["Current", "Old"]
+    assert names(headers, archived=True) == []
+
+
+def test_users_cannot_archive_each_others_boards():
+    alice = auth_headers("alice@example.com")
+    mallory = auth_headers("mallory@example.com")
+    board = new_board(alice, "Not yours")
+    url = f"/boards/{board['id']}"
+
+    response = client.patch(url, json={"archived": True}, headers=mallory)
+    assert response.status_code == 404
+    assert client.get(url, headers=alice).json()["archived"] is False
+
 def test_unknown_fields_are_rejected():
     headers = auth_headers("alice@example.com")
     board = new_board(headers, "Strict")

@@ -67,6 +67,19 @@ button {
   flex: 1;
 }
 
+.board-list.archived .open {
+  color: #6b778c;
+  font-style: italic;
+}
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0c66e4;
+  text-align: left;
+}
+
 button.danger {
   background: #b42318;
   border-color: #b42318;

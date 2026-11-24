@@ -62,9 +62,10 @@ Every route except `/health`, `/metrics`, `/auth/register` and `/auth/login` req
 | POST | `/auth/register` | Create an account (`{"email": "...", "password": "..."}`), 409 if the email is taken |
 | POST | `/auth/login` | Check the credentials and return an access token, valid for one hour |
 | GET | `/auth/me` | The account that owns the token |
-| GET | `/boards` | List your boards |
+| GET | `/boards` | List your boards (`?archived=true` for the archived ones) |
 | POST | `/boards` | Create a board (`{"name": "..."}`) with three default columns |
 | GET | `/boards/{id}` | One board with its columns and cards |
+| PATCH | `/boards/{id}` | Archive or restore a board (`{"archived": true}`) |
 | DELETE | `/boards/{id}` | Delete a board and everything in it |
 | POST | `/columns/{id}/cards` | Add a card to a column (`{"title": "..."}`) |
 | PATCH | `/cards/{id}` | Edit a card (title, description, due date) |
