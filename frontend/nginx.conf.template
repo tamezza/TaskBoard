@@ -7,6 +7,8 @@ server {
     # when the container starts, so one image works in every environment.
     location /api/ {
         proxy_pass ${API_URL}/;
+        # Cloud proxies refuse the old HTTP/1.0 that nginx speaks by default
+        proxy_http_version 1.1;
     }
 
     # Everything else is the React application
