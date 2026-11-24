@@ -60,6 +60,9 @@ type BoardsProps = {
 function Boards({ setLoggedIn, onOpen }: BoardsProps) {
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [name, setName] = useState("");
+  // The board whose "Delete" was clicked and is waiting for confirmation
+  const [confirming, setConfirming] = useState<number | null>(null);
+  const [error, setError] = useState("");
 
   function logout() {
     setToken(null);
@@ -82,17 +85,56 @@ function Boards({ setLoggedIn, onOpen }: BoardsProps) {
     setName("");
   }
 
+  async function removeBoard(boardId: number) {
+    try {
+      await api.deleteBoard(boardId);
+      setBoards(boards.filter((board) => board.id !== boardId));
+      setError("");
+    } catch {
+      setError("That board could not be deleted");
+    }
+    setConfirming(null);
+  }
+
   return (
     <main className="panel">
       <h1>Your boards</h1>
+      {error && <p role="alert">{error}</p>}
       <ul className="board-list">
-        {boards.map((board) => (
-          <li key={board.id}>
-            <button type="button" onClick={() => onOpen(board.id)}>
-              {board.name}
-            </button>
-          </li>
-        ))}
+        {boards.map((board) =>
+          confirming === board.id ? (
+            <li key={board.id} className="confirm">
+              <span>Delete "{board.name}" and all its cards?</span>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => void removeBoard(board.id)}
+              >
+                Delete
+              </button>
+              <button type="button" onClick={() => setConfirming(null)}>
+                Cancel
+              </button>
+            </li>
+          ) : (
+            <li key={board.id}>
+              <button
+                type="button"
+                className="open"
+                onClick={() => onOpen(board.id)}
+              >
+                {board.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(board.id)}
+                aria-label={`Delete board ${board.name}`}
+              >
+                ✕
+              </button>
+            </li>
+          ),
+        )}
       </ul>
       <form
         onSubmit={(event) => {

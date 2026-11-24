@@ -51,10 +51,26 @@ button {
   gap: 8px;
 }
 
-.board-list button {
-  width: 100%;
+.board-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.board-list .open {
+  flex: 1;
   text-align: left;
   background: #f4f5f7;
+}
+
+.board-list .confirm span {
+  flex: 1;
+}
+
+button.danger {
+  background: #b42318;
+  border-color: #b42318;
+  color: white;
 }
 
 .board {
