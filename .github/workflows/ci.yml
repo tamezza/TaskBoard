@@ -55,7 +55,7 @@ jobs:
           exit-code: "1"
 
   publish:
-        needs: [test, security, frontend]
+    needs: [test, security, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
