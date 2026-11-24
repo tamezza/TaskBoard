@@ -8,12 +8,25 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }
 
 provider "azurerm" {
-  features {}
+  features {
+    key_vault {
+      # A deleted vault normally stays recoverable for days and keeps its
+      # name reserved. This deployment is temporary: remove it completely.
+      purge_soft_delete_on_destroy = true
+    }
+  }
 }
+
+# Who is running Terraform (you, through "az login")
+data "azurerm_client_config" "current" {}
 
 variable "my_ip" {
   description = "The only public IP address allowed to open the application"
@@ -98,12 +111,80 @@ locals {
   ])
 }
 
+# ---------- Secrets: Key Vault and a managed identity ----------
+
+resource "azurerm_key_vault" "main" {
+  name                       = "taskboard-kv-${random_string.suffix.result}"
+  resource_group_name        = azurerm_resource_group.main.name
+  location                   = azurerm_resource_group.main.location
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  sku_name                   = "standard"
+  rbac_authorization_enabled = true
+  soft_delete_retention_days = 7
+}
+
+# An identity for the API: an account for a program, with no password to
+# store anywhere. Azure proves who the container is.
+resource "azurerm_user_assigned_identity" "api" {
+  name                = "taskboard-api-identity"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+}
+
+# Least privilege, twice:
+# you may write secrets in this vault (to create them)...
+resource "azurerm_role_assignment" "me_writes_secrets" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# ...and the API may only read them.
+resource "azurerm_role_assignment" "api_reads_secrets" {
+  scope                            = azurerm_key_vault.main.id
+  role_definition_name             = "Key Vault Secrets User"
+  principal_id                     = azurerm_user_assigned_identity.api.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}
+
+# Azure takes up to a minute or two to apply new permissions everywhere.
+resource "time_sleep" "permissions" {
+  create_duration = "90s"
+
+  depends_on = [
+    azurerm_role_assignment.me_writes_secrets,
+    azurerm_role_assignment.api_reads_secrets,
+  ]
+}
+
+resource "azurerm_key_vault_secret" "database_url" {
+  name         = "database-url"
+  value        = local.database_url
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [time_sleep.permissions]
+}
+
+resource "azurerm_key_vault_secret" "secret_key" {
+  name         = "secret-key"
+  value        = random_password.secret_key.result
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [time_sleep.permissions]
+}
+
 # ---------- Containers ----------
 
 resource "azurerm_container_app_environment" "main" {
   name                = "taskboard-env"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
+
+  # Pay-per-use mode. Azure sets it by default; declaring it keeps
+  # "terraform plan" from reporting a difference that is not one.
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
 }
 
 # The API: reachable only from inside the environment.
@@ -112,15 +193,25 @@ resource "azurerm_container_app" "api" {
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
   revision_mode                = "Single"
+  workload_profile_name        = "Consumption"
 
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.api.id]
+  }
+
+  # The values are no longer here: only where to find them in the vault,
+  # and which identity to present when asking.
   secret {
-    name  = "database-url"
-    value = local.database_url
+    name                = "database-url"
+    key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
+    identity            = azurerm_user_assigned_identity.api.id
   }
 
   secret {
-    name  = "secret-key"
-    value = random_password.secret_key.result
+    name                = "secret-key"
+    key_vault_secret_id = azurerm_key_vault_secret.secret_key.versionless_id
+    identity            = azurerm_user_assigned_identity.api.id
   }
 
   template {
@@ -169,6 +260,7 @@ resource "azurerm_container_app" "web" {
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
   revision_mode                = "Single"
+  workload_profile_name        = "Consumption"
 
   template {
     min_replicas = 0
