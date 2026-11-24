@@ -5,3 +5,5 @@ taskboard.db
 .DS_Store
 .terraform/
 *.tfstate*
+test.db
+test.db
