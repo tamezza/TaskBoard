@@ -38,6 +38,20 @@ export function setToken(token: string | null): void {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+// The API sends either one sentence, or for invalid input (422) a list of
+// problems, one per field. Turn both into a sentence a person can read.
+function describe(detail: unknown): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const problems = detail.map((item: { loc?: unknown[]; msg?: string }) => {
+      const field = item.loc?.[item.loc.length - 1];
+      return typeof field === "string" ? `${field}: ${item.msg}` : item.msg;
+    });
+    if (problems.length > 0) return problems.join(". ");
+  }
+  return "Request failed";
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -57,9 +71,7 @@ async function request<T>(
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail =
-      typeof data?.detail === "string" ? data.detail : "Request failed";
-    throw new ApiError(response.status, detail);
+    throw new ApiError(response.status, describe(data?.detail));
   }
   return data as T;
 }

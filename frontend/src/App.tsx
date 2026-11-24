@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, api, getToken, setToken } from "./api";
 import type { BoardSummary } from "./api";
 import { BoardView } from "./BoardView";
@@ -7,8 +7,12 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const form = useRef<HTMLFormElement>(null);
 
   async function handle(mode: "login" | "register") {
+    // "Create account" is a plain button, so the browser does not check
+    // the fields by itself as it does for "Log in". Ask it to.
+    if (!form.current?.reportValidity()) return;
     setError("");
     try {
       if (mode === "register") await api.register(email, password);
@@ -21,6 +25,7 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
 
   return (
     <form
+      ref={form}
       className="panel"
       onSubmit={(event) => {
         event.preventDefault();
