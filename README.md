@@ -1,7 +1,7 @@
 # TaskBoard
 
 [![CI](https://github.com/tamezza/TaskBoard/actions/workflows/ci.yml/badge.svg)](https://github.com/tamezza/TaskBoard/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.15-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
@@ -42,7 +42,7 @@ flowchart LR
 | Area | Tools |
 |---|---|
 | Interface | React 19, TypeScript, Vite, served by nginx |
-| API | Python 3.13, FastAPI, Pydantic, SQLAlchemy 2 |
+| API | Python 3.15, FastAPI, Pydantic, SQLAlchemy 2 |
 | Accounts | Argon2 password hashing, signed tokens (JWT) |
 | Database | PostgreSQL 17, schema migrations with Alembic (SQLite by default for local runs and CI) |
 | Tests and quality | pytest, ruff, oxlint, TypeScript compiler |
