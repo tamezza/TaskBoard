@@ -7,7 +7,12 @@ COPY . .
 RUN npm run build
 
 # Stage 2: serve them with nginx. Node is not in the final image.
-FROM nginxinc/nginx-unprivileged:stable-alpine
+FROM nginxinc/nginx-unprivileged:alpine
+# Apply the security updates published since the base image was built.
+# Installing packages needs root; the image goes back to its normal user after.
+USER root
+RUN apk upgrade --no-cache
+USER 101
 # The nginx image turns every file in /etc/nginx/templates into a
 # configuration file at start-up, filling in environment variables.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
