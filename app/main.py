@@ -1,14 +1,15 @@
-from typing import Annotated
-
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db import SessionLocal, Task
+from app.auth import router as auth_router
+from app.db import Task
+from app.deps import DbSession
 
 app = FastAPI(title="taskboard")
 Instrumentator().instrument(app).expose(app)
+app.include_router(auth_router)
 
 
 class TaskIn(BaseModel):
@@ -21,17 +22,6 @@ class TaskOut(BaseModel):
     done: bool
 
     model_config = {"from_attributes": True}
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-DbSession = Annotated[Session, Depends(get_db)]
 
 
 

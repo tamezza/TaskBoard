@@ -23,6 +23,11 @@ spec:
                   key: password
             - name: DATABASE_URL
               value: postgresql+psycopg://taskboard:$(DB_PASSWORD)@db:5432/taskboard
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: taskboard-db
+                  key: secret-key
           ports:
             - containerPort: 8000
           readinessProbe:

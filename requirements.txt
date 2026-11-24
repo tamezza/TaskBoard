@@ -16,3 +16,6 @@ sqlalchemy
 psycopg[binary]
 prometheus-fastapi-instrumentator
 alembic
+argon2-cffi
+pyjwt
+email-validator

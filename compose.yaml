@@ -19,6 +19,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://taskboard:${POSTGRES_PASSWORD}@db:5432/taskboard
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
     depends_on:
       db:
         condition: service_healthy
