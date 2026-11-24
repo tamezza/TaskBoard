@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+
 import pytest
 
 from app import models  # noqa: F401
