@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { api } from "./api";
 import type { Board, Card, Column } from "./api";
+import { folderColour } from "./theme";
 
 type Props = { boardId: number; onBack: () => void };
 
@@ -94,14 +96,18 @@ export function BoardView({ boardId, onBack }: Props) {
   if (!board) return <main className="panel">Loading…</main>;
 
   return (
-    <main className="board">
-      <header>
-        <button type="button" onClick={onBack}>
+    <>
+      <header className="topbar">
+        <button type="button" className="ghost" onClick={onBack}>
           ← Boards
         </button>
-        <h1>{board.name}</h1>
       </header>
-      {error && <p role="alert">{error}</p>}
+      <main
+        className="board"
+        style={{ "--folder": folderColour(board.id) } as CSSProperties}
+      >
+        <h1>{board.name}</h1>
+        {error && <p role="alert">{error}</p>}
       <div className="columns">
         {board.columns.map((column, index) => (
           <ColumnView
@@ -121,7 +127,8 @@ export function BoardView({ boardId, onBack }: Props) {
           />
         ))}
       </div>
-    </main>
+      </main>
+    </>
   );
 }
 
@@ -201,6 +208,7 @@ function ColumnView({
             <div className="actions">
               <button
                 type="button"
+                className="ghost small"
                 disabled={!previous}
                 onClick={() => previous && move(card, previous)}
                 aria-label="Move left"
@@ -209,6 +217,7 @@ function ColumnView({
               </button>
               <button
                 type="button"
+                className="ghost small"
                 disabled={!next}
                 onClick={() => next && move(card, next)}
                 aria-label="Move right"
@@ -217,6 +226,7 @@ function ColumnView({
               </button>
               <button
                 type="button"
+                className="ghost small"
                 onClick={() => void run(() => api.deleteCard(card.id))}
                 aria-label="Delete card"
               >
