@@ -44,6 +44,12 @@ variable "db_location" {
   default     = "swedencentral"
 }
 
+variable "github_subject" {
+  description = "GitHub token subject, for access to the container registry: this repository, in its azure environment"
+  type        = string
+  default     = "repo:tamezza@130645657/TaskBoard@1467089786:environment:azure"
+}
+
 variable "image_tag" {
   description = "Tag of the two images to deploy: latest, or a commit SHA"
   type        = string
@@ -180,6 +186,33 @@ resource "azurerm_key_vault_secret" "secret_key" {
 
 # ---------- Containers ----------
 
+# ---------- Deployment from GitHub, with no stored password ----------
+
+# A second identity, separate from the API's: this one is for the pipeline.
+resource "azurerm_user_assigned_identity" "deployer" {
+  name                = "taskboard-deployer-identity"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+}
+
+# Accept a token issued by GitHub for Azure.
+resource "azurerm_federated_identity_credential" "github" {
+  name                      = "github-actions"
+  user_assigned_identity_id = azurerm_user_assigned_identity.deployer.id
+  issuer                    = "https://token.actions.githubusercontent.com"
+  audience                  = ["api://AzureADTokenExchange"]
+  subject                   = var.github_subject
+}
+
+# What the pipeline may do: manage this resource group.
+resource "azurerm_role_assignment" "deployer" {
+  scope                            = azurerm_resource_group.main.id
+  role_definition_name             = "Contributor"
+  principal_id                     = azurerm_user_assigned_identity.deployer.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}
+
 resource "azurerm_container_app_environment" "main" {
   name                = "taskboard-env"
   resource_group_name = azurerm_resource_group.main.name
@@ -262,6 +295,11 @@ resource "azurerm_container_app" "api" {
     azurerm_postgresql_flexible_server_database.main,
     azurerm_postgresql_flexible_server_firewall_rule.azure_services,
   ]
+
+  # Terraform creates the app; the pipeline decides which version runs.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 }
 
 # The migration: a job, not a service. It runs once when started, applies
@@ -312,6 +350,11 @@ resource "azurerm_container_app_job" "migrate" {
     azurerm_postgresql_flexible_server_database.main,
     azurerm_postgresql_flexible_server_firewall_rule.azure_services,
   ]
+
+  # Terraform creates the app; the pipeline decides which version runs.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 }
 
 # The interface: the only part with a public address, over HTTPS,
@@ -356,6 +399,12 @@ resource "azurerm_container_app" "web" {
       percentage      = 100
     }
   }
+
+
+  # Terraform creates the app; the pipeline decides which version runs.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 }
 
 output "url" {
@@ -365,4 +414,14 @@ output "url" {
 output "migrate_command" {
   description = "Run this after every apply that changes the image"
   value       = "az containerapp job start --name ${azurerm_container_app_job.migrate.name} --resource-group ${azurerm_resource_group.main.name}"
+}
+
+
+output "github_settings" {
+  description = "Values to store in the GitHub environment named azure"
+  value = {
+    AZURE_CLIENT_ID       = azurerm_user_assigned_identity.deployer.client_id
+    AZURE_TENANT_ID       = data.azurerm_client_config.current.tenant_id
+    AZURE_SUBSCRIPTION_ID = data.azurerm_client_config.current.subscription_id
+  }
 }
