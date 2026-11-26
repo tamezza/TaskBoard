@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, api, getToken, setToken } from "./api";
 import type { BoardSummary } from "./api";
 import { BoardView } from "./BoardView";
+import { Logo } from "./Logo";
+import { folderColour } from "./theme";
 
 function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [email, setEmail] = useState("");
@@ -32,7 +34,10 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
         void handle("login");
       }}
     >
-      <h1>TaskBoard</h1>
+      <h1>
+        <Logo /> TaskBoard
+      </h1>
+      <p className="hint">Log in to your boards, or create an account.</p>
       <input
         type="email"
         placeholder="Email"
@@ -48,7 +53,9 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
         minLength={8}
         required
       />
-      <button type="submit">Log in</button>
+      <button type="submit" className="primary">
+        Log in
+      </button>
       <button type="button" onClick={() => void handle("register")}>
         Create account
       </button>
@@ -70,6 +77,9 @@ function Boards({ setLoggedIn, onOpen }: BoardsProps) {
   // The board whose "Delete" was clicked and is waiting for confirmation
   const [confirming, setConfirming] = useState<number | null>(null);
   const [error, setError] = useState("");
+  // False until the first answer from the API, so the welcome line
+  // does not flash while the boards are still loading.
+  const [loaded, setLoaded] = useState(false);
 
   function logout() {
     setToken(null);
@@ -81,6 +91,7 @@ function Boards({ setLoggedIn, onOpen }: BoardsProps) {
       .then(([active, hidden]) => {
         setBoards(active);
         setArchived(hidden);
+        setLoaded(true);
       })
       .catch(() => {
         setToken(null);
@@ -125,7 +136,7 @@ function Boards({ setLoggedIn, onOpen }: BoardsProps) {
   function row(board: BoardSummary) {
     if (confirming === board.id) {
       return (
-        <li key={board.id} className="confirm">
+        <li key={board.id} className="tile confirm">
           <span>Delete "{board.name}" and all its cards?</span>
           <button
             type="button"
@@ -141,66 +152,92 @@ function Boards({ setLoggedIn, onOpen }: BoardsProps) {
       );
     }
     return (
-      <li key={board.id}>
+      <li
+        key={board.id}
+        className="tile"
+        style={{ background: folderColour(board.id) }}
+      >
         <button
           type="button"
-          className="open"
+          className="open ghost"
           onClick={() => onOpen(board.id)}
         >
           {board.name}
         </button>
-        <button
-          type="button"
-          onClick={() => void moveBoard(board, !board.archived)}
-        >
-          {board.archived ? "Restore" : "Archive"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirming(board.id)}
-          aria-label={`Delete board ${board.name}`}
-        >
-          ✕
-        </button>
+        <div className="tile-actions">
+          <button
+            type="button"
+            className="ghost small"
+            onClick={() => void moveBoard(board, !board.archived)}
+          >
+            {board.archived ? "Restore" : "Archive"}
+          </button>
+          <button
+            type="button"
+            className="ghost small"
+            onClick={() => setConfirming(board.id)}
+            aria-label={`Delete board ${board.name}`}
+          >
+            Delete
+          </button>
+        </div>
       </li>
     );
   }
 
   return (
-    <main className="panel">
-      <h1>Your boards</h1>
-      {error && <p role="alert">{error}</p>}
-      <ul className="board-list">{boards.map(row)}</ul>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void addBoard();
-        }}
-      >
-        <input
-          placeholder="New board name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
-        <button type="submit">Add board</button>
-      </form>
-      {archived.length > 0 && (
-        <button
-          type="button"
-          className="link"
-          onClick={() => setShowArchived(!showArchived)}
-        >
-          {showArchived ? "Hide" : "Show"} archived boards ({archived.length})
+    <>
+      <header className="topbar">
+        <Logo />
+        <strong>TaskBoard</strong>
+        <span className="spacer" />
+        <button type="button" className="ghost" onClick={logout}>
+          Log out
         </button>
-      )}
-      {showArchived && archived.length > 0 && (
-        <ul className="board-list archived">{archived.map(row)}</ul>
-      )}
-      <button type="button" onClick={logout}>
-        Log out
-      </button>
-    </main>
+      </header>
+      <main className="page">
+        <h1>Your boards</h1>
+        {error && <p role="alert">{error}</p>}
+        {loaded && boards.length === 0 && (
+          <p className="hint">
+            No boards yet. Name your first one, for example "This week".
+          </p>
+        )}
+        <ul className="tiles">
+          {boards.map(row)}
+          <li className="tile new">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addBoard();
+              }}
+            >
+              <input
+                placeholder="New board name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
+              <button type="submit" className="primary">
+                Add board
+              </button>
+            </form>
+          </li>
+        </ul>
+        {archived.length > 0 && (
+          <button
+            type="button"
+            className="link"
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            {showArchived ? "Hide" : "Show"} archived boards ({archived.length})
+          </button>
+        )}
+        {showArchived && archived.length > 0 && (
+          <ul className="tiles archived">{archived.map(row)}</ul>
+        )}
+      </main>
+    </>
   );
 }
 

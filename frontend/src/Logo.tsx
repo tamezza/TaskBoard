@@ -1,0 +1,20 @@
+// The TaskBoard mark: three folders filed one behind the other.
+export function Logo() {
+  return (
+    <svg className="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <rect width="100" height="100" rx="22" fill="#6b2d4a" />
+      <path
+        fill="#a9cbe0"
+        d="M56 26a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v50a5 5 0 0 1-5 5H21a5 5 0 0 1-5-5V37a5 5 0 0 1 5-5h35z"
+      />
+      <path
+        fill="#b9cf9f"
+        d="M36 39a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v6h20v31a5 5 0 0 1-5 5H21a5 5 0 0 1-5-5V45h20z"
+      />
+      <path
+        fill="#f2a68f"
+        d="M16 52a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v6h40v18a5 5 0 0 1-5 5H21a5 5 0 0 1-5-5z"
+      />
+    </svg>
+  );
+}
