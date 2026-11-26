@@ -258,6 +258,23 @@ docker compose stop api                      # FIRING TaskboardDown after about 
 docker compose start api                     # RESOLVED TaskboardDown
 ```
 
+## Backup and restore
+
+```bash
+scripts/backup.sh                                   # writes backups/taskboard-<date>.dump
+scripts/restore-test.sh backups/<file>.dump         # restores it into a scratch database and counts the rows
+```
+
+The restore test loads the backup into a separate database, so it can be run at any time without touching the data. A real restore replaces the content of the database with the backup, and everything written after the backup is lost:
+
+```bash
+docker compose stop api
+docker compose exec -T db pg_restore -U taskboard -d taskboard --clean --if-exists --no-owner < backups/<file>.dump
+docker compose start api
+```
+
+Backup files contain user data and are excluded from Git.
+
 ## Security
 
 - **Passwords:** stored as Argon2 hashes, never in clear text. A failed login gives the same answer whether the email or the password is wrong.
@@ -284,6 +301,7 @@ infra/                Terraform for Azure: a virtual machine (main.tf) and manag
 monitoring/           Prometheus configuration, alert rules, Alertmanager routing and receiver, Grafana provisioning
 Dockerfile            Image of the API
 compose.yaml          Local stack: interface, API, PostgreSQL, Prometheus, Alertmanager, Grafana
+scripts/              Database backup and restore test
 Jenkinsfile           Jenkins pipeline
 .env.example          Template for the local .env file
 ```
@@ -299,7 +317,7 @@ Jenkinsfile           Jenkins pipeline
 - Boards are personal. Sharing a board with other users is planned for the next version.
 - The development password used in early commits is still visible in the Git history. It has been replaced and is no longer used anywhere.
 - Alerts are routed to a local receiver that prints them. A real deployment would send them to email, chat or an on-call service.
-- The database has no backup procedure in the local stack, and no restore has been tested.
+- Backups are taken by hand and stay on the same machine as the database. A real deployment would schedule them and copy them elsewhere, or rely on the automatic backups of the managed database.
 
 ## Author
 

@@ -7,3 +7,4 @@ taskboard.db
 *.tfstate*
 test.db
 test.db
+backups/
