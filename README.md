@@ -71,7 +71,8 @@ Every route except `/health`, `/metrics`, `/auth/register` and `/auth/login` req
 | PATCH | `/cards/{id}` | Edit a card (title, description, due date) |
 | POST | `/cards/{id}/move` | Move a card (`{"column_id": 2, "position": 0}`) |
 | DELETE | `/cards/{id}` | Delete a card |
-| GET | `/health` | Health check, used by the Kubernetes readiness probe |
+| GET | `/ready` | Readiness check: 200 if the database answers a real query, 503 otherwise |
+| GET | `/health` | Liveness check: the process is running |
 | GET | `/metrics` | Prometheus metrics (request counts and durations) |
 
 A request for a board, column or card that belongs to another user returns 404, the same answer as for one that does not exist. Unknown fields in a request body are rejected with 422.
