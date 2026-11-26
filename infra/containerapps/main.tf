@@ -216,13 +216,18 @@ resource "azurerm_container_app" "api" {
 
   template {
     min_replicas = 0
-    max_replicas = 1
+    max_replicas = 3
 
     container {
       name   = "api"
       image  = "ghcr.io/tamezza/taskboard:${var.image_tag}"
       cpu    = 0.25
       memory = "0.5Gi"
+
+      # The image's default command migrates the database, then starts the
+      # server. Here the migration is a separate job, so the API only serves.
+      # That is what makes several replicas safe.
+      command = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
       env {
         name        = "DATABASE_URL"
@@ -244,6 +249,56 @@ resource "azurerm_container_app" "api" {
     traffic_weight {
       latest_revision = true
       percentage      = 100
+    }
+  }
+
+  depends_on = [
+    azurerm_postgresql_flexible_server_database.main,
+    azurerm_postgresql_flexible_server_firewall_rule.azure_services,
+  ]
+}
+
+# The migration: a job, not a service. It runs once when started, applies
+# the schema changes, and stops. It uses the same image and the same secret
+# as the API, so it migrates with exactly the code being released.
+resource "azurerm_container_app_job" "migrate" {
+  name                         = "taskboard-migrate"
+  resource_group_name          = azurerm_resource_group.main.name
+  location                     = azurerm_resource_group.main.location
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  workload_profile_name        = "Consumption"
+
+  replica_timeout_in_seconds = 300
+  replica_retry_limit        = 1
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.api.id]
+  }
+
+  secret {
+    name                = "database-url"
+    key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
+    identity            = azurerm_user_assigned_identity.api.id
+  }
+
+  template {
+    container {
+      name    = "migrate"
+      image   = "ghcr.io/tamezza/taskboard:${var.image_tag}"
+      cpu     = 0.25
+      memory  = "0.5Gi"
+      command = ["alembic", "upgrade", "head"]
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
     }
   }
 
@@ -299,4 +354,9 @@ resource "azurerm_container_app" "web" {
 
 output "url" {
   value = "https://${azurerm_container_app.web.ingress[0].fqdn}"
+}
+
+output "migrate_command" {
+  description = "Run this after every apply that changes the image"
+  value       = "az containerapp job start --name ${azurerm_container_app_job.migrate.name} --resource-group ${azurerm_resource_group.main.name}"
 }
