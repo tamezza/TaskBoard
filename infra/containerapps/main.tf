@@ -38,6 +38,12 @@ variable "location" {
   default = "swedencentral"
 }
 
+variable "db_location" {
+  description = "Region of the database, if the main region has no capacity"
+  type        = string
+  default     = "swedencentral"
+}
+
 variable "image_tag" {
   description = "Tag of the two images to deploy: latest, or a commit SHA"
   type        = string
@@ -74,7 +80,7 @@ resource "azurerm_resource_group" "main" {
 resource "azurerm_postgresql_flexible_server" "main" {
   name                   = "taskboard-db-${random_string.suffix.result}"
   resource_group_name    = azurerm_resource_group.main.name
-  location               = azurerm_resource_group.main.location
+  location               = var.db_location
   version                = "17"
   sku_name               = "B_Standard_B1ms"
   storage_mb             = 32768
