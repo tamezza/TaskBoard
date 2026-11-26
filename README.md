@@ -222,6 +222,12 @@ terraform destroy -var "my_ip=$(curl -4 -s https://checkip.amazonaws.com)"
 - Database migrations run as a separate job, started once per release, before the new version receives traffic. The API containers only serve requests, so several replicas can start at the same time without racing to change the schema.
 - Both containers scale to zero when nobody uses the application, so an idle deployment costs nothing for compute.
 
+### Releasing a version
+
+A new version is released by the [`Deploy`](.github/workflows/deploy.yml) workflow, started by hand from the Actions tab with the commit identifier to release. After approval by a reviewer of the `azure` environment, it runs the migration job, waits for it to succeed, then switches the API and the interface to that version. If the migration fails, the containers keep running the previous version.
+
+GitHub logs in to Azure without any stored password. Terraform creates an identity that trusts tokens issued by GitHub for this repository and this environment only (OpenID Connect federation), with rights limited to the application's resource group.
+
 ## Monitoring
 
 The API exposes Prometheus metrics at `/metrics`. The Compose stack includes:
