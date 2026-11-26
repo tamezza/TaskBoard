@@ -39,6 +39,19 @@ services:
     ports:
       - "9090:9090"
 
+  alertmanager:
+    image: prom/alertmanager
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+
+  receiver:
+    image: python:3.15-slim
+    command: python /receiver.py
+    volumes:
+      - ./monitoring/receiver.py:/receiver.py:ro
+      
   grafana:
     image: grafana/grafana
     volumes:

@@ -1,0 +1,11 @@
+route:
+  receiver: local
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: local
+    webhook_configs:
+      - url: http://receiver:9000/
+        send_resolved: true

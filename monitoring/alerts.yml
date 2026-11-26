@@ -8,3 +8,10 @@ groups:
           severity: critical
         annotations:
           summary: "TaskBoard API is down"
+      - alert: TaskboardErrors
+        expr: sum(rate(http_requests_total{job="taskboard", status="5xx"}[1m])) > 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "TaskBoard API is answering with server errors"
