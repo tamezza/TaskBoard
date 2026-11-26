@@ -266,7 +266,7 @@ resource "azurerm_container_app" "api" {
       # The image's default command migrates the database, then starts the
       # server. Here the migration is a separate job, so the API only serves.
       # That is what makes several replicas safe.
-      command = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      command = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
 
       env {
         name        = "DATABASE_URL"

@@ -244,6 +244,8 @@ The API exposes Prometheus metrics at `/metrics`, and two checks: `/health` says
 - **Alertmanager**, configured in [`monitoring/alertmanager.yml`](monitoring/alertmanager.yml), which groups the alerts and sends them, firing and resolved, to a receiver. The receiver in this repository, [`monitoring/receiver.py`](monitoring/receiver.py), is a small script that prints each alert; replacing it with email or chat is a change in that one file.
 - **Grafana**, with its data source and a `TaskBoard` dashboard provisioned from files in [`monitoring/grafana/`](monitoring/grafana): requests per second by status, and 95th percentile latency.
 
+The API writes one line of JSON per request, with its method, path, status, duration and a request identifier. The same identifier is returned to the caller in the `X-Request-ID` header, so a problem reported by a user can be traced to its exact log line. Health checks and metric scrapes are not logged.
+
 Nothing is configured by hand: `docker compose up` recreates the dashboard, the rules and the alert routing from the repository.
 
 The second rule exists because of an incident during a cloud deployment: the API answered 200 on `/health` while every real request failed, the database schema not having been migrated yet. An alert on unreachability alone stays silent in that case.
@@ -297,7 +299,6 @@ Jenkinsfile           Jenkins pipeline
 - Boards are personal. Sharing a board with other users is planned for the next version.
 - The development password used in early commits is still visible in the Git history. It has been replaced and is no longer used anywhere.
 - Alerts are routed to a local receiver that prints them. A real deployment would send them to email, chat or an on-call service.
-- The API writes plain text logs. Structured logs with a request identifier would make an incident easier to investigate.
 - The database has no backup procedure in the local stack, and no restore has been tested.
 
 ## Author
