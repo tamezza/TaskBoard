@@ -40,3 +40,18 @@ def test_not_ready_when_the_tables_are_missing():
         assert client.get("/health").status_code == 200
     finally:
         app.dependency_overrides.clear()
+
+
+def test_every_response_carries_a_request_id():
+    response = client.get("/boards")
+    assert len(response.headers["X-Request-ID"]) == 32
+
+
+def test_a_request_id_sent_by_the_caller_is_kept():
+    response = client.get("/boards", headers={"X-Request-ID": "trace-12345678"})
+    assert response.headers["X-Request-ID"] == "trace-12345678"
+
+
+def test_a_suspicious_request_id_is_replaced():
+    response = client.get("/boards", headers={"X-Request-ID": "bad id\twith spaces"})
+    assert response.headers["X-Request-ID"] != "bad id\twith spaces"
